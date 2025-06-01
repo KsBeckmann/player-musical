@@ -142,8 +142,6 @@ def buscar_musica(artistas: list, nome_musica: str) -> list:
     
     return resultados
 
-
-
 ##################################################################################
 
 if __name__ == "__main__":
@@ -157,9 +155,9 @@ if __name__ == "__main__":
         print("[2] - Listar Biblioteca")
         print("[3] - Buscar por nome")
         print("[4] - Sair")
-        opcao = int(input("Escolha: "))
+        opcao = input("Escolha: ")
 
-        if opcao == 1:
+        if opcao == '1':
             artista_nome = str(input("Digite o nome do artista: ")).lower()
             album = str(input("Digite o nome do album: ")).lower()
             musica = str(input("Digite o nome da música: ")).lower()
@@ -172,7 +170,7 @@ if __name__ == "__main__":
                 salvar_dados(artistas)
             limpar_tela()
 
-        if opcao == 2:
+        if opcao == '2':
             limpar_tela()
             print("==========BIBLIOTECA==========")
             indice_artistas = 1
@@ -194,7 +192,7 @@ if __name__ == "__main__":
             input("Pressione Enter para voltar")
             limpar_tela()
             
-        if opcao == 3:
+        if opcao == '3':
             while True:
                 limpar_tela()
                 print("==========REPRODUTOR DE MUSICA==========")
@@ -202,9 +200,9 @@ if __name__ == "__main__":
                 print("[2] - Album")
                 print("[3] - Musica")
                 print("[4] - Voltar")
-                opcao_busca = int(input("Escolha: "))
+                opcao_busca = str(input("Escolha: "))
                 
-                if opcao_busca == 1:
+                if opcao_busca == '1':
                     limpar_tela()
                     artista_busca = str(input("Artista: "))
                     resultado = buscar_artista(artistas, artista_busca)
@@ -212,25 +210,28 @@ if __name__ == "__main__":
                     indice_print_busca = 1
                     print("==========ARTISTAS ENCONTRADOS==========")
                     indice_artistas = 1
-                    for artista in resultado:
-                        print(f"[{indice_artistas}] - {artista.nome}")
-                        indice_artistas += 1
+                    if resultado:
+                        for artista in resultado:
+                            print(f"[{indice_artistas}] - {artista.nome}")
+                            indice_artistas += 1
 
-                        indice_albuns = 1
-                        for album in artista.albuns:
-                            print(f"    [{indice_albuns}] - {album.nome}")
-                            indice_albuns += 1
+                            indice_albuns = 1
+                            for album in artista.albuns:
+                                print(f"    [{indice_albuns}] - {album.nome}")
+                                indice_albuns += 1
 
-                            indice_musicas = 1
-                            for musica in album.musicas:
-                                print(f"        [{indice_musicas}] - {musica.nome}")
-                                indice_musicas += 1
-                        print("")
+                                indice_musicas = 1
+                                for musica in album.musicas:
+                                    print(f"        [{indice_musicas}] - {musica.nome}")
+                                    indice_musicas += 1
+                            print("")
+                    else:
+                        print("Nenhum artista encontrado")
 
-                    input("Pressione Enter para voltar")
+                    input("\nPressione Enter para voltar")
                     limpar_tela()
                 
-                if opcao_busca == 2:
+                if opcao_busca == '2':
                     limpar_tela()
                     album_busca = str(input("Album: "))
                     resultado = buscar_album(artistas, album_busca)
@@ -251,11 +252,11 @@ if __name__ == "__main__":
                                     print(f"        [{indice_musicas}] - {musica.nome}")
                                     indice_musicas += 1
                     else:
-                        print("[ERRO] - Nenhum album encontrado")
-                    input("Pressione Enter para voltar")
+                        print("Nenhum album encontrado")
+                    input("\nPressione Enter para voltar")
                     limpar_tela()
                 
-                if opcao_busca == 3:
+                if opcao_busca == '3':
                     limpar_tela()
                     musica_busca = str(input("Música: ")).strip()
                     resultados = buscar_musica(artistas, musica_busca)
@@ -283,9 +284,11 @@ if __name__ == "__main__":
                     input("\nPressione Enter para voltar")
                     limpar_tela()
                 
-                if opcao_busca == 4:
+                if opcao_busca == '4':
                     limpar_tela()
                     break
 
-        if opcao == 4:
+        if opcao == '4':
             continuar = False
+
+        limpar_tela()
