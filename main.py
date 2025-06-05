@@ -1,5 +1,6 @@
 import pickle
 import os
+import pygame
 import shutil
 from pathlib import Path
 
@@ -42,6 +43,30 @@ class Artista:
     
     def adicionar_album(self, nome_album:str) -> None:
         self.albuns.append(Album(nome_album))
+
+class Reprodutor:
+    def tocar_musica(nome_arquivo_musica: str, pasta_musicas: str, nome_display_musica: str = None) -> bool:
+        if nome_display_musica is None:
+            nome_display_musica = nome_arquivo_musica
+
+        if not pygame.get_init():
+            pygame.init()
+        pygame.mixer.init()
+
+        caminho_completo = os.path.join(pasta_musicas, nome_arquivo_musica)
+
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
+
+        pygame.mixer.music.load(caminho_completo)
+
+        pygame.mixer.music.play()
+
+        print(f"--- '{nome_display_musica}' está tocando ---")
+
+    def parar_musica():
+        if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
 
 def salvar_dados(artistas):
     with open(CAMINHO_ARQUIVO, 'wb') as arquivo:
@@ -145,16 +170,25 @@ def buscar_musica(artistas: list, nome_musica: str) -> list:
 ##################################################################################
 
 if __name__ == "__main__":
+
+    pygame.init()
+    pygame.mixer.init()
+
     limpar_tela()
     artistas = carregar_artistas()
-
+    musica_tocando_info = None
     continuar = True
+
     while continuar:
         print("==========REPRODUTOR DE MUSICA==========")
         print("[1] - Adicionar Musica")
         print("[2] - Listar Biblioteca")
         print("[3] - Buscar por nome")
-        print("[4] - Sair")
+        if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+            print(f"[4] - Parar Música ('{musica_tocando_info['nome_display'] }')")
+        else:
+            print("[4] - Tocar Musica")
+        print("[5] - Sair")
         opcao = input("Escolha: ")
 
         if opcao == '1':
@@ -170,7 +204,7 @@ if __name__ == "__main__":
                 salvar_dados(artistas)
             limpar_tela()
 
-        if opcao == '2':
+        elif opcao == '2':
             limpar_tela()
             print("==========BIBLIOTECA==========")
             indice_artistas = 1
@@ -192,7 +226,7 @@ if __name__ == "__main__":
             input("Pressione Enter para voltar")
             limpar_tela()
             
-        if opcao == '3':
+        elif opcao == '3':
             while True:
                 limpar_tela()
                 print("==========REPRODUTOR DE MUSICA==========")
@@ -288,7 +322,66 @@ if __name__ == "__main__":
                     limpar_tela()
                     break
 
-        if opcao == '4':
-            continuar = False
+        elif opcao == '4':
+            limpar_tela()
+            if not pygame.mixer.get_init():
+                print("Erro: Mixer do Pygame não está inicializado. Não é possível tocar música.")
+                input("Pressione Enter para voltar.")
+                continue
+                
+            if pygame.mixer.music.get_busy():
+                musica_tocando_info = None
+                input("Pressione Enter para voltar ao menu.")
+                continue
 
-        limpar_tela()
+            musicas_selecao = []
+            if artistas:
+                for artista_obj_fila in artistas:
+                    for album_obj_fila in artista_obj_fila.albuns:
+                        for musica_obj_fila in album_obj_fila.musicas:
+                            musicas_selecao.append({
+                                'nome_arquivo': musica_obj_fila.nome_arquivo,
+                                'nome_display': musica_obj_fila.nome.title(),
+                                'artista_nome': artista_obj_fila.nome.title()
+                            })
+
+            print("========== ESCOLHA UMA MÚSICA PARA TOCAR ==========")
+            for idx, info_musica in enumerate(musicas_selecao):
+                print(f"[{idx + 1}] - {info_musica['nome_display']} (Artista: {info_musica['artista_nome']})")
+            
+            print(f"[{len(musicas_selecao) + 1}] - Voltar ao Menu Principal")
+
+            escolha_musica_str = input(f"Escolha (1-{len(musicas_selecao)+1}): ").strip()
+            if not escolha_musica_str.isdigit():
+                raise ValueError("Entrada inválida. Digite um número.")
+                
+            escolha_musica_num = int(escolha_musica_str)
+
+            if escolha_musica_num == len(musicas_selecao) + 1:
+                continue
+
+            musica_selecionada = musicas_selecao[escolha_musica_num - 1]
+
+            if Reprodutor.tocar_musica(
+                musica_selecionada['nome_arquivo'],
+                PASTA_MUSICAS,
+                musica_selecionada['nome_display']
+            ):
+                musica_tocando_info = musica_selecionada
+            else:
+                musica_tocando_info = None
+                input("Pressione Enter para voltaaaaaaaaar.")
+                #Aqui dá problema se não parar a música depois do Enter, mas tá tarde, amanhã eu conserto
+                Reprodutor.parar_musica()
+                limpar_tela()
+
+        elif opcao == '5':
+            continuar = False
+    
+        else:
+            limpar_tela()
+            print("Opção inválida! Escolha novamente.")
+            input("Pressione Enter para tentar novamente:")
+            limpar_tela()
+
+    limpar_tela()
