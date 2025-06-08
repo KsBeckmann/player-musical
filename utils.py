@@ -65,5 +65,18 @@ def copiar_musica(caminho: Path) -> bool:
     else:
         return False
 
+def limpas_musicas_orfaos(artistas):
+    '''Remove musicas que não estão no pickle'''
+    if Path(PASTA_MUSICAS).exists():
+        musicas_validas = set()
+        for artista in artistas:
+            for album in artista.albuns:
+                for musica in album.musicas:
+                    musicas_validas.add(musica.nome_arquivo)
+        
+        for arquivo in Path(PASTA_MUSICAS).iterdir():
+            if arquivo.name not in musicas_validas:
+                arquivo.unlink()
+
 def limpar_tela() -> None:
     os.system('cls' if os.name == 'nt' else 'clear')
