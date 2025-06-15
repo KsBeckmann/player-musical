@@ -7,9 +7,17 @@ from classes import Artista
 CAMINHO_ARQUIVO = "dados.pkl"
 PASTA_MUSICAS = "musicas"
 
-def salvar_dados(artistas):
+def salvar_dados(artistas, playlists=None):
+    """Salva dados de artistas e playlists"""
+    if playlists is None:
+        playlists = []
+    
+    dados = {
+        'artistas': artistas,
+        'playlists': playlists
+    }
     with open(CAMINHO_ARQUIVO, 'wb') as arquivo:
-        pickle.dump(artistas, arquivo)
+        pickle.dump(dados, arquivo)
 
 def adicionar_artista(artistas: list, novo_artista: str) -> bool:
     for artista in artistas:
@@ -43,15 +51,20 @@ def adicionar_musica(artistas: list, nome_artista: str, nome_album: str,
                     album.adicionar_musica(nome_musica, caminho_arquivo)
                     return True
 
-def carregar_artistas() -> list:
+def carregar_dados() -> tuple:
+    """Carrega dados de artistas e playlists do arquivo pickle"""
     if not Path(CAMINHO_ARQUIVO).exists():
-        return []
-    
+        return [], []
+        
     try:
         with open(CAMINHO_ARQUIVO, 'rb') as arquivo:
-            return pickle.load(arquivo)
-    except (EOFError, pickle.PickleError):
-        return []
+            dados = pickle.load(arquivo)
+            artistas = dados.get('artistas', [])
+            playlists = dados.get('playlists', [])
+            return artistas, playlists
+    except Exception as e:
+        print(f"Erro ao carregar dados: {e}")
+        return [], []
 
 def copiar_musica(caminho: Path) -> bool:
     Path(PASTA_MUSICAS).mkdir(exist_ok=True)
@@ -59,10 +72,13 @@ def copiar_musica(caminho: Path) -> bool:
     if arquivo.is_file() and arquivo.suffix in ('.mp3', '.wav', '.flac'):
         try:
             shutil.copy2(arquivo, PASTA_MUSICAS)
-        except:
+            print("Música copiada com sucesso!")
+            return True
+        except Exception as e:
+            print(f"Erro ao copiar música: {e}")
             return False
-        return True
     else:
+        print("Arquivo não é um formato de música válido (.mp3, .wav, .flac)")
         return False
 
 def limpas_musicas_orfaos(artistas):

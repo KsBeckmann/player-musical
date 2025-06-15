@@ -25,7 +25,7 @@ class Album:
     def nome(self):
         return self.__nome
     
-    def adicionar_musica(self, musica, caminho_arquivo: list) -> None:
+    def adicionar_musica(self, musica: str, caminho_arquivo: str) -> None:
         self.musicas.append(Musica(musica, caminho_arquivo))
 
 class Artista:
