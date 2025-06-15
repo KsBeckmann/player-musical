@@ -2,22 +2,32 @@ import pygame
 from pathlib import Path
 from classes import *
 from utils import *
+from threading import Lock
+import logging
+import os
+from typing import Dict, Optional
+from logger import Logger
 
 class MenuReprodutor:
     def __init__(self):
+        self.logger = Logger("MenuReprodutor", "reprodutor.log")
         self.artistas = carregar_artistas()
         self.musica_tocando_info = None
         self.continuar = True
+        self.logger.info("MenuReprodutor inicializado")
 
     def menu_principal(self):
         try:
             pygame.init()
             pygame.mixer.init()
+            self.logger.info("Pygame inicializado com sucesso")
         except pygame.error as e:
+            self.logger.error(f"Erro crítico ao inicializar Pygame: {e}")
             print(f"Erro crítico ao inicializar Pygame: {e}. A reprodução de música não funcionará.")
             input("Pressione Enter para continuar mesmo assim ou feche o terminal.")
 
         while self.continuar:
+            self.logger.debug("Exibindo menu principal")
             limpar_tela()
             print("========== REPRODUTOR DE MÚSICA ==========")
             print("[1] - Adicionar Música")
@@ -38,6 +48,7 @@ class MenuReprodutor:
                 print(f"\n --> Tocando agora: {self.musica_tocando_info['nome_display']} - {self.musica_tocando_info['artista_nome']}")
 
             opcao = input("Escolha: ").strip()
+            self.logger.info(f"Opção selecionada: {opcao}")
 
             if opcao == '1':
                 self.lidar_com_adicionar_musica()
@@ -52,11 +63,13 @@ class MenuReprodutor:
             elif opcao == '5':
                 self.musica_tocando_info = self.lidar_com_tocar_parar_musica()
             elif opcao == '6':
+                self.logger.info("Usuário escolheu sair")
                 if self.artistas:
                     limpas_musicas_orfaos(self.artistas)
                     salvar_dados(self.artistas)
                 self.continuar = False
             else:
+                self.logger.warning(f"Opção inválida selecionada: {opcao}")
                 print("\nOpção inválida! Pressione Enter para tentar novamente.")
                 input()
 
@@ -68,8 +81,10 @@ class MenuReprodutor:
         if pygame.get_init():
             pygame.quit()
         print("Recursos do Pygame liberados. Até logo!")
+        self.logger.info("Aplicação finalizada")
 
     def lidar_com_adicionar_musica(self):
+        self.logger.info("Iniciando processo de adicionar música")
         limpar_tela()
         print("--- Adicionar Nova Música ---")
         artista = str(input("Nome do artista: ")).strip()
@@ -77,14 +92,19 @@ class MenuReprodutor:
         musica = str(input("Nome da música: ")).strip()
         caminho_str = str(input("Caminho completo do arquivo da música: ")).strip()
         
+        self.logger.debug(f"Dados inseridos - Artista: {artista}, Álbum: {album}, Música: {musica}, Caminho: {caminho_str}")
+        
         if not all([artista, album, musica, caminho_str]):
+            self.logger.error("Erro: Campos obrigatórios não preenchidos")
             print("\nErro: Todos os campos são obrigatórios.")
         else:
             if copiar_musica(Path(caminho_str)):
                 adicionar_musica(self.artistas, artista, album, musica, Path(caminho_str).name)
+                self.logger.info(f"Música adicionada com sucesso: {musica} - {artista}")
         input("\nPressione Enter para voltar ao menu.")
 
     def lidar_com_remover(self):
+        self.logger.info("Iniciando processo de remoção")
         alteracoes = False
         while True:
             limpar_tela()
@@ -94,14 +114,18 @@ class MenuReprodutor:
             print("[3] - Musica")
             print("[4] - Sair")
             escolha = str(input("Escolha: "))
+            self.logger.debug(f"Opção de remoção selecionada: {escolha}")
 
             if escolha == '1':
                 limpar_tela()
                 nome_artista = str(input("Artista: "))
+                self.logger.debug(f"Tentando remover artista: {nome_artista}")
                 if self.remover_artista(nome_artista):
+                    self.logger.info(f"Artista {nome_artista} removido com sucesso")
                     print(f"Artista {nome_artista} removido com sucesso")
                     alteracoes = True
                 else:
+                    self.logger.warning(f"Artista não encontrado: {nome_artista}")
                     print("Artista não encontrado")
                 input("\nAperte ENTER para continuar")
 
@@ -109,10 +133,13 @@ class MenuReprodutor:
                 limpar_tela()
                 nome_artista = str(input("Artista: "))
                 nome_album = str(input("Álbum: "))
+                self.logger.debug(f"Tentando remover álbum: {nome_album} do artista: {nome_artista}")
                 if remover_album(self.artistas, nome_artista, nome_album):
+                    self.logger.info(f"Álbum {nome_album} removido com sucesso")
                     print(f"Álbum {nome_album} removido com sucesso")
                     alteracoes = True
                 else:
+                    self.logger.warning(f"Álbum não encontrado: {nome_album}")
                     print("Álbum não encontrado")
                 input("\nAperte ENTER para continuar")
 
@@ -121,16 +148,20 @@ class MenuReprodutor:
                 nome_artista = str(input("Artista: "))
                 nome_album = str(input("Álbum: "))
                 nome_musica = str(input("Musica: "))
+                self.logger.debug(f"Tentando remover música: {nome_musica} do álbum: {nome_album}")
                 if remover_musica(self.artistas, nome_artista, nome_album, nome_musica):
+                    self.logger.info(f"Música {nome_musica} removida com sucesso")
                     print(f"Musica {nome_musica} removida com sucesso")
                     alteracoes = True
                 else:
+                    self.logger.warning(f"Música não encontrada: {nome_musica}")
                     print("Musica não encontrada")
                 input("\nAperte ENTER para continuar")
 
             if escolha == '4':
                 if alteracoes:
                     salvar_dados(self.artistas)
+                    self.logger.info("Dados salvos após remoções")
                 return
         
     def remover_artista(self, nome_artista: str) -> bool:
@@ -142,11 +173,14 @@ class MenuReprodutor:
         return False
 
     def lidar_com_listar_biblioteca(self):
+        self.logger.info("Listando biblioteca")
         limpar_tela()
         print("========== MINHA BIBLIOTECA ==========")
         if not self.artistas:
+            self.logger.debug("Biblioteca vazia")
             print("\nSua biblioteca está vazia.")
         else:
+            self.logger.debug(f"Listando {len(self.artistas)} artistas")
             for art_obj in self.artistas:
                 print(f"\nArtista: {art_obj.nome.title()}")
                 if not art_obj.albuns: print("  (Nenhum álbum)")
@@ -158,6 +192,7 @@ class MenuReprodutor:
         input("\nPressione Enter para voltar ao menu.")
 
     def lidar_com_busca(self):
+        self.logger.info("Iniciando busca")
         while True:
             limpar_tela()
             print("==========REPRODUTOR DE MUSICA==========")
@@ -166,14 +201,17 @@ class MenuReprodutor:
             print("[3] - Musica")
             print("[4] - Voltar")
             opcao_busca = str(input("Escolha: "))
+            self.logger.debug(f"Tipo de busca selecionado: {opcao_busca}")
             
             if opcao_busca == '1':
                 limpar_tela()
                 artista_busca = str(input("Artista: "))
+                self.logger.debug(f"Buscando artista: {artista_busca}")
                 resultado = buscar_artista(self.artistas, artista_busca)
                 limpar_tela()
                 print("==========ARTISTAS ENCONTRADOS==========")
                 if resultado:
+                    self.logger.info(f"Encontrados {len(resultado)} artistas")
                     for artista in resultado:
                         print(f"{artista.nome}")
                         for album in artista.albuns:
@@ -181,6 +219,7 @@ class MenuReprodutor:
                             for musica in album.musicas:
                                 print(f"    - {musica.nome}")
                 else:
+                    self.logger.info("Nenhum artista encontrado na busca")
                     print("Nenhum artista encontrado")
                 input("\nPressione Enter para voltar")
                 limpar_tela()
@@ -188,10 +227,12 @@ class MenuReprodutor:
             elif opcao_busca == '2':
                 limpar_tela()
                 album_busca = str(input("Album: "))
+                self.logger.debug(f"Buscando álbum: {album_busca}")
                 resultado = buscar_album(self.artistas, album_busca)
                 limpar_tela()
                 print("==========ALBUNS ENCONTRADOS==========")
                 if resultado:
+                    self.logger.info(f"Encontrados álbuns em {len(resultado)} artistas")
                     for artista, albuns in resultado:
                         print(f"{artista.nome}")
                         for album in albuns:
@@ -199,6 +240,7 @@ class MenuReprodutor:
                             for musica in album.musicas:
                                 print(f"    - {musica.nome}")
                 else:
+                    self.logger.info("Nenhum álbum encontrado na busca")
                     print("Nenhum album encontrado")
                 input("\nPressione Enter para voltar")
                 limpar_tela()
@@ -206,11 +248,13 @@ class MenuReprodutor:
             elif opcao_busca == '3':
                 limpar_tela()
                 musica_busca = str(input("Música: ")).strip()
+                self.logger.debug(f"Buscando música: {musica_busca}")
                 resultados = buscar_musica(self.artistas, musica_busca)
                 limpar_tela()
                 print("==========MÚSICAS ENCONTRADAS==========")
                 
                 if resultados:
+                    self.logger.info(f"Encontradas músicas em {len(resultados)} artistas")
                     for artista, albuns_musicas in resultados:
                         print(f"{artista.nome}")
                         for album, musicas in albuns_musicas.items():
@@ -218,21 +262,25 @@ class MenuReprodutor:
                             for musica in musicas:
                                 print(f"    - {musica.nome}")
                 else:
+                    self.logger.info("Nenhuma música encontrada na busca")
                     print("Nenhuma música encontrada")
                 input("\nPressione Enter para voltar")
                 limpar_tela()
             
             elif opcao_busca == '4':
+                self.logger.debug("Saindo da busca")
                 limpar_tela()
                 break
 
     def lidar_com_tocar_parar_musica(self):
         if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+            self.logger.info("Parando música em reprodução")
             Reprodutor.parar_musica()
             print("\nMúsica parada.")
             input("Pressione Enter para voltar.")
             return None
 
+        self.logger.info("Iniciando seleção de música para reprodução")
         limpar_tela()
         fila_de_musicas = []
         for art in self.artistas:
@@ -245,10 +293,12 @@ class MenuReprodutor:
                     })
         
         if not fila_de_musicas:
+            self.logger.warning("Tentativa de reprodução com biblioteca vazia")
             print("Biblioteca vazia. Adicione músicas primeiro.")
             input("Pressione Enter para voltar.")
             return None
 
+        self.logger.debug(f"Exibindo {len(fila_de_musicas)} músicas disponíveis")
         print("========== ESCOLHA UMA MÚSICA PARA TOCAR ==========")
         for i, info in enumerate(fila_de_musicas):
             print(f"[{i+1}] - {info['nome_display']} (Artista: {info['artista_nome']})")
@@ -257,21 +307,28 @@ class MenuReprodutor:
         try:
             escolha_str = input(f"Escolha (1-{len(fila_de_musicas)+1}): ").strip()
             escolha_num = int(escolha_str)
+            self.logger.debug(f"Escolha do usuário: {escolha_num}")
 
-            if escolha_num == len(fila_de_musicas) + 1: return None
+            if escolha_num == len(fila_de_musicas) + 1: 
+                self.logger.debug("Usuário escolheu voltar")
+                return None
             
             if 1 <= escolha_num <= len(fila_de_musicas):
                 musica_selecionada = fila_de_musicas[escolha_num - 1]
+                self.logger.info(f"Tentando reproduzir: {musica_selecionada['nome_display']} - {musica_selecionada['artista_nome']}")
                 if Reprodutor.tocar_musica(
                     musica_selecionada['nome_arquivo'],
                     PASTA_MUSICAS,
                     musica_selecionada['nome_display']
                 ):
+                    self.logger.info("Música iniciada com sucesso")
                     return musica_selecionada
             else:
+                self.logger.warning(f"Escolha inválida: {escolha_num}")
                 print("\nEscolha inválida.")
                 input("Pressione Enter para voltar.")
         except (ValueError, IndexError):
+            self.logger.error(f"Entrada inválida: {escolha_str}")
             print("\nEntrada inválida. Por favor, digite um número da lista.")
             input("Pressione Enter para voltar.")
         

@@ -25,12 +25,7 @@ class Logger(metaclass=SingletonMeta):
         formatador = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(threadName)s - %(message)s'
         )
-
-        # Handler para console
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatador)
-        self._logger.addHandler(console_handler)
-
+        
         if arquivo_log:
             if os.path.exists(arquivo_log):
                 with open(arquivo_log, 'w'):
@@ -39,6 +34,8 @@ class Logger(metaclass=SingletonMeta):
             file_handler = logging.FileHandler(arquivo_log)
             file_handler.setFormatter(formatador)
             self._logger.addHandler(file_handler)
+        else:
+            self._logger.addHandler(logging.NullHandler())
         
         self._log_lock = Lock()
 
