@@ -55,7 +55,7 @@ class Reprodutor:
             pygame.mixer.music.stop()
 
         pygame.mixer.music.load(caminho_completo)
-
+        pygame.mixer.music.set_volume(0.5)
         pygame.mixer.music.play()
 
         print(f"--- '{nome_display_musica}' está tocando ---")

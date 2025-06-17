@@ -43,7 +43,8 @@ class MenuReprodutor:
             else:
                 print("[5] - Tocar Música")
             print("[6] - Gerenciar Playlists")
-            print("[7] - Sair")
+            print("[7] - Ajustar volume")
+            print("[8] - Sair")
             
             if mixer_pronto and pygame.mixer.music.get_busy() and self.musica_tocando_info:
                 print(f"\n --> Tocando agora: {self.musica_tocando_info['nome_display']} - {self.musica_tocando_info['artista_nome']}")
@@ -66,6 +67,8 @@ class MenuReprodutor:
             elif opcao == '6':
                 self.menu_playlists()
             elif opcao == '7':
+                self.ajustar_volume()
+            elif opcao == '8':
                 self.logger.info("Usuário escolheu sair")
                 if self.artistas:
                     limpas_musicas_orfaos(self.artistas)
@@ -509,6 +512,7 @@ class MenuReprodutor:
     def reproduzir_playlist_thread(self, playlist):
         pygame.init()
         pygame.mixer.init()
+        pygame.mixer.music.set_volume(0.5)
 
         for musica in playlist.musicas:
             if not self.playlist_tocando:
@@ -552,6 +556,36 @@ class MenuReprodutor:
                 playlist.remover_musica(musica_removida)
             return True
         return False
+    
+    def ajustar_volume(self):
+        while True:
+            limpar_tela()
+            volume_atual = round(pygame.mixer.music.get_volume() * 100)
+            print(f"=== AJUSTAR VOLUME (Atual: {volume_atual}%) ===")
+            print("[1] - Definir volume (0-100%)")
+            print("[2] - Voltar")
+            
+            opcao = input("Escolha: ").strip()
+            
+            if opcao == '1':
+                try:
+                    volume_input = int(input("Digite o volume desejado (0-100): "))
+                    volume_input = max(0, min(volume_input, 100))
+                    novo_volume = volume_input / 100
+                    pygame.mixer.music.set_volume(novo_volume)
+                    self.logger.info(f"Volume definido para {volume_input}%")
+                    print(f"Volume definido para {volume_input}%")
+                    input("Pressione ENTER para continuar.")
+                except ValueError:
+                    self.logger.error("Valor inválido. Digite um número inteiro entre 0 e 100.")
+                    print("Valor inválido. Digite um número inteiro entre 0 e 100.")
+                    input("Pressione ENTER para continuar.")
+                    
+            elif opcao == '2':
+                break
+            else:
+                print("Opção inválida.")
+                input("Pressione ENTER para continuar.")
 
 def remover_album(artistas: list, nome_artista: str, nome_album: str) -> bool:
     nome_artista = nome_artista.lower()
