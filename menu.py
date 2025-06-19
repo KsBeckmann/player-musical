@@ -6,11 +6,13 @@ import os
 from logger import Logger
 from playlist import Playlist
 import threading
+from historico import HistoricoReproducao
 
 class MenuReprodutor:
     def __init__(self):
         self.logger = Logger("MenuReprodutor", "reprodutor.log")
         self.artistas, self.playlists = carregar_dados()
+        self.historico = HistoricoReproducao()
         self.musica_tocando_info = None
         self.continuar = True
         self.logger.info("MenuReprodutor inicializado")
@@ -43,8 +45,9 @@ class MenuReprodutor:
             else:
                 print("[5] - Tocar Música")
             print("[6] - Gerenciar Playlists")
-            print("[7] - Ajustar volume")
-            print("[8] - Sair")
+            print("[7] - Histórico de reprodução")
+            print("[8] - Ajustar volume")
+            print("[9] - Sair")
             
             if mixer_pronto and pygame.mixer.music.get_busy() and self.musica_tocando_info:
                 print(f"\n --> Tocando agora: {self.musica_tocando_info['nome_display']} - {self.musica_tocando_info['artista_nome']}")
@@ -67,8 +70,10 @@ class MenuReprodutor:
             elif opcao == '6':
                 self.menu_playlists()
             elif opcao == '7':
-                self.ajustar_volume()
+                self.mostrar_historico()
             elif opcao == '8':
+                self.ajustar_volume()
+            elif opcao == '9':
                 self.logger.info("Usuário escolheu sair")
                 if self.artistas:
                     limpas_musicas_orfaos(self.artistas)
@@ -295,7 +300,8 @@ class MenuReprodutor:
                     fila_de_musicas.append({
                         'nome_arquivo': mus.nome_arquivo,
                         'nome_display': mus.nome.title(),
-                        'artista_nome': art.nome.title()
+                        'artista_nome': art.nome.title(),
+                        'artista_obj': art  # Adicionamos o objeto artista para facilitar
                     })
         
         if not fila_de_musicas:
@@ -322,22 +328,31 @@ class MenuReprodutor:
             if 1 <= escolha_num <= len(fila_de_musicas):
                 musica_selecionada = fila_de_musicas[escolha_num - 1]
                 self.logger.info(f"Tentando reproduzir: {musica_selecionada['nome_display']} - {musica_selecionada['artista_nome']}")
-                if Reprodutor.tocar_musica(
+                
+                resultado = Reprodutor.tocar_musica(
                     musica_selecionada['nome_arquivo'],
                     PASTA_MUSICAS,
                     musica_selecionada['nome_display']
-                ):
+                )
+                
+                if resultado['status']:
+                    self.historico.adicionar_registro(
+                        musica_selecionada['nome_display'],
+                        musica_selecionada['artista_nome']
+                    )
                     self.logger.info("Música iniciada com sucesso")
                     return musica_selecionada
+                else:
+                    self.logger.error(f"Erro ao reproduzir música: {resultado.get('erro', 'Desconhecido')}")
+                    print(f"\nErro ao reproduzir música: {resultado.get('erro', 'Desconhecido')}")
             else:
                 self.logger.warning(f"Escolha inválida: {escolha_num}")
                 print("\nEscolha inválida.")
-                input("Pressione Enter para voltar.")
         except (ValueError, IndexError):
             self.logger.error(f"Entrada inválida: {escolha_str}")
             print("\nEntrada inválida. Por favor, digite um número da lista.")
-            input("Pressione Enter para voltar.")
         
+        input("Pressione Enter para voltar.")
         return None
     
     def menu_playlists(self):
@@ -346,13 +361,15 @@ class MenuReprodutor:
             print("========== GERENCIAR PLAYLISTS ==========")
             print("[1] - Criar Playlist")
             print("[2] - Adicionar Música a Playlist")
-            print("[3] - Listar playlists")
+            print("[3] - Remover música de playlist")
+            print("[4] - Listar playlists")
             if self.playlist_tocando:
-                print("[4] - Parar reprodução da playlist")
+                print("[5] - Parar reprodução da playlist")
             else:
-                print("[4] - Tocar playlist")
-            print("[5] - Remover playlist")
-            print("[6] - Voltar")
+                print("[5] - Tocar playlist")
+            print("[6] - Remover playlist")
+            print("[7] - Ordenar playlist")
+            print("[8] - Voltar")
 
             opcao = input("Escolha: ").strip()
 
@@ -426,8 +443,10 @@ class MenuReprodutor:
                         print("Opção inválida! Digite um número da lista.")
                         input("Pressione ENTER para continuar")
 
-
             elif opcao == '3':
+                self.remover_musica_de_playlist()
+
+            elif opcao == '4':
                 while True:
                     limpar_tela()
                     print("=== Playlists ===")
@@ -452,7 +471,7 @@ class MenuReprodutor:
                     
                     input("Pressione ENTER para continuar: ")
             
-            elif opcao == '4':
+            elif opcao == '5':
                 if self.playlist_tocando:
                     self.logger.info("Parando reprodução da playlist")
                     Reprodutor.parar_musica()
@@ -502,9 +521,11 @@ class MenuReprodutor:
                     self.logger.error("Entrada inválida para seleção de playlist.")
                     print("Entrada inválida. Por favor, digite um número da lista.")
                     input("Pressione ENTER para voltar.")
-            elif opcao == '5':
-                self.remover_playlist()
             elif opcao == '6':
+                self.remover_playlist()
+            elif opcao == '7':
+                self.ordenar_playlist()
+            elif opcao == '8':
                 break
 
     def listar_playlists(self):
@@ -527,14 +548,32 @@ class MenuReprodutor:
                 continue
 
             self.logger.info(f"Tocando: {musica.nome}")
-            pygame.mixer.music.load(caminho)
-            pygame.mixer.music.play()
 
-            while pygame.mixer.music.get_busy():
-                if not self.playlist_tocando:
-                    pygame.mixer.music.stop()
+            # Encontrar o artista da música
+            artista_nome = ""
+            for artista in self.artistas:
+                for album in artista.albuns:
+                    if any(m.nome_arquivo == musica.nome_arquivo for m in album.musicas):
+                        artista_nome = artista.nome
+                        break
+                if artista_nome:
                     break
-                pygame.time.Clock().tick(10)
+
+            # Registrar no histórico
+            self.historico.adicionar_registro(musica.nome, artista_nome)
+
+            try:
+                pygame.mixer.music.load(caminho)
+                pygame.mixer.music.play()
+
+                while pygame.mixer.music.get_busy():
+                    if not self.playlist_tocando:
+                        pygame.mixer.music.stop()
+                        break
+                    pygame.time.Clock().tick(10)
+            except Exception as e:
+                self.logger.error(f"Erro ao reproduzir música: {e}")
+                print(f"Erro ao reproduzir música: {e}")
 
         self.playlist_tocando = False
 
@@ -631,6 +670,172 @@ class MenuReprodutor:
             except ValueError:
                 print("Por favor, digite um número válido.")
                 input("Pressione ENTER para continuar")
+    
+    def ordenar_playlist(self):
+        while True:
+            limpar_tela()
+            if not self.playlists:
+                print("Nenhuma playlist encontrada.")
+                input("Aperte ENTER para voltar")
+                return
+            
+            print("=== ORDENAR PLAYLIST ===")
+            self.listar_playlists()
+            print(f"[{len(self.playlists) + 1}] - Voltar")
+
+            try:
+                escolha = input("Escolha a playlist para ordenar (ou 0 para voltar): ").strip()
+                if escolha == '0':
+                    return
+                
+                escolha_num = int(escolha) - 1
+                if 0 <= escolha_num < len(self.playlists):
+                    playlist = self.playlists[escolha_num]
+
+                    while True:
+                        limpar_tela()
+                        print(f" === ORDENAR PLAYLIST: {playlist.nome} ===")
+                        print("[1] - Ordenar por nome (A-Z)")
+                        print("[2] - Ordenar por nome (Z-A)")
+                        print("[3] - Mover música manualmente")
+                        print("[4] - Voltar")
+
+                        opcao_ordenacao = input("Escolha: ").strip()
+
+                        if opcao_ordenacao == '1':
+                            playlist.ordenar_por_nome(reverso=False)
+                            print("Playlist ordenada por nome (A-Z)!")
+                            input("Pressione ENTER para continuar")
+                        elif opcao_ordenacao == '2':
+                            playlist.ordenar_por_nome(reverso=True)
+                            print("Playlist ordenada por nome (Z-A)!")
+                            input("Pressione ENTER para continuar")
+                        elif opcao_ordenacao == '3':
+                            self.mover_musica_playlist(playlist)
+                        elif opcao_ordenacao == '4':
+                            break;
+                        else:
+                            print("Opção inválida!")
+                            input("Pressione ENTER para continuar")
+                elif escolha_num == len(self.playlists):
+                    return
+                else:
+                    print("Opção inválida!")
+                    input("Pressione ENTER para continuar")
+            except ValueError:
+                print("Por favor, digite um número válido.")
+                input("Pressione ENTER para continuar")  
+                          
+    def mover_musica_playlist(self, playlist):
+        while True:
+            limpar_tela()
+            print(f"=== MOVER MÚSICA NA PLAYLIST: {playlist.nome} ===")
+            for i, musica in enumerate(playlist.musicas):
+                print(f"[{i+1}] - {musica.nome}")
+            print("[0] - Voltar")
+
+            try:
+                escolha = input("Escolha a música para mover (ou 0 para voltar): ").strip()
+                if escolha == '0':
+                    return
+                
+                indice_atual = int(escolha) - 1
+                if 0 <= indice_atual < len(playlist.musicas):
+                    nova_posicao = int(input(f"Nova posição (1-{len(playlist.musicas)}): ")) - 1
+                    if 0 <= nova_posicao < len(playlist.musicas):
+                        if playlist.mover_musica(indice_atual, nova_posicao):
+                            print("Música removida com sucesso!")
+                            salvar_dados(self.artistas, self.playlists)
+                        else:
+                            print("Posição inválida")
+                    else:
+                        print("Posição inválida")
+                else:
+                    print("Posição inválida")
+                input("Pressione ENTER para continuar")
+            except ValueError:
+                print("Por favor, digite um número válido.")
+                input("Pressione ENTER para continuar")
+    
+    def remover_musica_de_playlist(self):
+        while True:
+            limpar_tela()
+            if not self.playlists:
+                print("Nenhuma playlist encontrada")
+                input("Aperte ENTER para voltar")
+                return
+            
+            print("=== REMOVER MÚSICA DE PLAYLIST ===")
+            self.listar_playlists()
+            print(f"[{len(self.playlists) + 1}] - Voltar")
+
+            try:
+                escolha = input("Escolha a playlist para remover música (ou 0 para voltar): ").strip()
+                if escolha == '0':
+                    return
+                
+                escolha_num = int(escolha) - 1
+                if 0 <= escolha_num < len(self.playlists):
+                    playlist = self.playlists[escolha_num]
+
+                    while True:
+                        limpar_tela()
+                        print(f"=== REMOVER MÚSICA DA PLAYLIST: {playlist.nome} ===")
+                        if not playlist.musicas:
+                            print("Playlist vazia.")
+                            input("Pressione ENTER para voltar")
+                            break
+
+                        for i, musica in enumerate(playlist.musicas):
+                            print(f"[{i+1}] - {musica.nome}")
+                        print("[0] - Voltar")
+
+                        opcao_musica = input("Escolha a música para remover (ou 0 para voltar): ").strip()
+
+                        if opcao_musica == '0':
+                            break
+
+                        try:
+                            indice = int(opcao_musica) - 1
+                            if playlist.remover_musica_por_indice(indice):
+                                print("Música removida com sucesso")
+                                salvar_dados(self.artistas, self.playlists)
+                            else:
+                                print("Índice inválido!")
+                            input("Pressione ENTER para continuar")
+                        except ValueError:
+                            print("Por favor, digite um número válido.")
+                            input("Pressione ENTER para continuar")
+                elif escolha_num == len(self.playlists):
+                    return
+                else:
+                    print("Opção inválida!")
+                    input("Pressione ENTER para continuar")
+            except ValueError:
+                print("Por favor, digite um número válido.")
+                input("Pressione ENTER para continuar")
+        
+    def mostrar_historico(self):
+        limpar_tela()
+        print("========== HISTÓRICO DE REPRODUÇÃO ==========")
+        registros = self.historico.obter_historico(limite=20)
+
+        if not registros:
+            print("\nNenhuma música reproduzida ainda.")
+        else:
+            for i, registro in enumerate(reversed(registros), 1):
+                data_hora = registro['data_hora'].strftime("%d/%m/%Y %H:%M:%S")
+                print(f"{i}. {registro['musica']} - {registro['artista']} ({data_hora})")
+        
+        print("\n[1] - Limpar Histórico")
+        print("[2] - Voltar")
+
+        opcao = input("Escolha: ").strip()
+        if opcao == '1':
+            self.historico.limpar_historico()
+            print("Histórico limpo com sucesso!")
+            input("Pressione ENTER para continuar.")
+
 
 def remover_album(artistas: list, nome_artista: str, nome_album: str) -> bool:
     nome_artista = nome_artista.lower()

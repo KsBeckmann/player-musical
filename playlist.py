@@ -26,6 +26,25 @@ class Playlist:
         else:
             self.logger.error(f"Música {musica.nome} não encontrada")
 
+    def mover_musica(self, indice_atual: int, novo_indice: int) -> bool:
+        if 0 <= indice_atual < len(self.__musicas) and 0 <= novo_indice < len(self.__musicas):
+            musica = self.__musicas.pop(indice_atual)
+            self.__musicas.insert(novo_indice, musica)
+            self.logger.info(f"Musica {musica.nome} movida da posição {indice_atual} para {novo_indice}")
+            return True
+        return False
+    
+    def ordenar_por_nome(self, reverso: bool = False):
+        self.__musicas.sort(key=lambda m: m.nome.lower(), reverse=reverso)
+        self.logger.info(f"Playlist ordenada por nome (reverso={reverso})")
+
+    def remover_musica_por_indice(self, indice: int) -> bool:
+        if 0 <= indice < len(self.__musicas):
+            musica = self.__musicas.pop(indice)
+            self.logger.info(f"Musica {musica.nome} removida da posição {indice}")
+            return True
+        return False
+
     def __getstate__(self):
         state = self.__dict__.copy()
         if 'logger' in state:

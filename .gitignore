@@ -175,4 +175,4 @@ cython_debug/
 
 #player-musical specific
 musicas/
-dados.pkl
+*.pkl

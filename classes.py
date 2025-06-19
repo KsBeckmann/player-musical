@@ -41,7 +41,8 @@ class Artista:
         self.albuns.append(Album(nome_album))
 
 class Reprodutor:
-    def tocar_musica(nome_arquivo_musica: str, pasta_musicas: str, nome_display_musica: str = None) -> bool:
+    @staticmethod
+    def tocar_musica(nome_arquivo_musica: str, pasta_musicas: str, nome_display_musica: str = None) -> dict:
         if nome_display_musica is None:
             nome_display_musica = nome_arquivo_musica
 
@@ -54,15 +55,29 @@ class Reprodutor:
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.stop()
 
-        pygame.mixer.music.load(caminho_completo)
-        pygame.mixer.music.set_volume(0.5)
-        pygame.mixer.music.play()
+        try:
+            pygame.mixer.music.load(caminho_completo)
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play()
+            print(f"--- '{nome_display_musica}' está tocando ---")
+            return {
+                'status': True,
+                'nome_musica': nome_display_musica,
+                'nome_arquivo': nome_arquivo_musica
+            }
+        except Exception as e:
+            print(f"Erro ao reproduzir música: {e}")
+            return {
+                'status': False,
+                'erro': str(e)
+            }
 
-        print(f"--- '{nome_display_musica}' está tocando ---")
-
+    @staticmethod
     def parar_musica():
         if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
             pygame.mixer.music.stop()
+            return True
+        return False
 
 # Funções de Busca
 
