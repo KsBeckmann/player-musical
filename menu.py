@@ -351,7 +351,8 @@ class MenuReprodutor:
                 print("[4] - Parar reprodução da playlist")
             else:
                 print("[4] - Tocar playlist")
-            print("[5] - Voltar")
+            print("[5] - Remover playlist")
+            print("[6] - Voltar")
 
             opcao = input("Escolha: ").strip()
 
@@ -501,8 +502,9 @@ class MenuReprodutor:
                     self.logger.error("Entrada inválida para seleção de playlist.")
                     print("Entrada inválida. Por favor, digite um número da lista.")
                     input("Pressione ENTER para voltar.")
-
             elif opcao == '5':
+                self.remover_playlist()
+            elif opcao == '6':
                 break
 
     def listar_playlists(self):
@@ -586,6 +588,49 @@ class MenuReprodutor:
             else:
                 print("Opção inválida.")
                 input("Pressione ENTER para continuar.")
+    
+    def remover_playlist(self):
+        while True:
+            limpar_tela()
+            if not self.playlists:
+                print("Nenhuma playlist encontrada")
+                input("Aperte ENTER para voltar")
+                return
+
+            print("=== REMOVER PLAYLIST ===")
+            self.listar_playlists()
+            print(f"[{len(self.playlists) + 1}] - Voltar")
+
+            try:
+                escolha = input("Escolha a playlist para remover (ou 0 para voltar): ").strip()
+                if escolha == '0':
+                    return
+                
+                escolha_num = int(escolha) - 1
+                if 0 <= escolha_num < len(self.playlists):
+                    playlist = self.playlists[escolha_num]
+                    confirmacao = input(f"Tem certeza que deseja remover a playlist '{playlist.nome}'? (s/n): ").lower()
+                    if confirmacao == 's':
+                        if self.playlist_tocando and self.playlist_thread and self.playlist_thread.is_alive():
+                            Reprodutor.parar_musica()
+                            self.playlist_tocando = False
+                            self.playlist_thread.join(timeout=1)
+                        
+                        self.playlists.pop(escolha_num)
+                        salvar_dados(self.artistas, self.playlists)
+                        self.logger.info(f"Playlist '{playlist.nome}' removida com sucesso")
+                        print(f"Playlist '{playlist.nome}' removida com sucesso!")
+                    else:
+                        print("Operação cancelada.")
+                    input("Pressione ENTER para continuar")
+                elif escolha_num == len(self.playlists):
+                    return
+                else:
+                    print("Opção inválida!")
+                    input("Pressione ENTER para continuar")
+            except ValueError:
+                print("Por favor, digite um número válido.")
+                input("Pressione ENTER para continuar")
 
 def remover_album(artistas: list, nome_artista: str, nome_album: str) -> bool:
     nome_artista = nome_artista.lower()
