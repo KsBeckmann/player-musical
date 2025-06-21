@@ -6,6 +6,7 @@ from classes import Artista
 
 CAMINHO_ARQUIVO = "dados.pkl"
 PASTA_MUSICAS = "musicas"
+CAMINHO_CONFIG = "config.pkl"
 
 def salvar_dados(artistas, playlists=None):
     """Salva dados de artistas e playlists"""
@@ -18,6 +19,39 @@ def salvar_dados(artistas, playlists=None):
     }
     with open(CAMINHO_ARQUIVO, 'wb') as arquivo:
         pickle.dump(dados, arquivo)
+
+def carregar_dados() -> tuple:
+    """Carrega dados de artistas e playlists do arquivo pickle"""
+    if not Path(CAMINHO_ARQUIVO).exists():
+        return [], []
+        
+    try:
+        with open(CAMINHO_ARQUIVO, 'rb') as arquivo:
+            dados = pickle.load(arquivo)
+            artistas = dados.get('artistas', [])
+            playlists = dados.get('playlists', [])
+            return artistas, playlists
+    except Exception as e:
+        print(f"Erro ao carregar dados: {e}")
+        return [], []
+
+def salvar_configuracoes(config: dict):
+    """Salva as configurações do usuário, como volume."""
+    try:
+        with open(CAMINHO_CONFIG, 'wb') as f:
+            pickle.dump(config, f)
+    except Exception as e:
+        print(f"Erro ao salvar configurações: {e}")
+
+def carregar_configuracoes() -> dict:
+    """Carrega as configurações do usuário."""
+    if Path(CAMINHO_CONFIG).exists():
+        try:
+            with open(CAMINHO_CONFIG, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            print(f"Erro ao carregar configurações: {e}")
+    return {'volume': 0.5}
 
 def adicionar_artista(artistas: list, novo_artista: str) -> bool:
     for artista in artistas:
@@ -50,21 +84,6 @@ def adicionar_musica(artistas: list, nome_artista: str, nome_album: str,
                             return False
                     album.adicionar_musica(nome_musica, caminho_arquivo)
                     return True
-
-def carregar_dados() -> tuple:
-    """Carrega dados de artistas e playlists do arquivo pickle"""
-    if not Path(CAMINHO_ARQUIVO).exists():
-        return [], []
-        
-    try:
-        with open(CAMINHO_ARQUIVO, 'rb') as arquivo:
-            dados = pickle.load(arquivo)
-            artistas = dados.get('artistas', [])
-            playlists = dados.get('playlists', [])
-            return artistas, playlists
-    except Exception as e:
-        print(f"Erro ao carregar dados: {e}")
-        return [], []
 
 def copiar_musica(caminho: Path) -> bool:
     Path(PASTA_MUSICAS).mkdir(exist_ok=True)

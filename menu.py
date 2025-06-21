@@ -12,17 +12,33 @@ class MenuReprodutor:
     def __init__(self):
         self.logger = Logger("MenuReprodutor", "reprodutor.log")
         self.artistas, self.playlists = carregar_dados()
+        self.configuracoes = carregar_configuracoes()
         self.historico = HistoricoReproducao()
         self.musica_tocando_info = None
         self.continuar = True
         self.logger.info("MenuReprodutor inicializado")
         self.playlist_thread = None
         self.playlist_tocando = False
+        self.indice_musicas = self._criar_indice_hash() 
+
+    def _criar_indice_hash(self):
+        """Cria um índice de músicas (tabela hash) para busca rápida."""
+        indice = {}
+        for artista in self.artistas:
+            for album in artista.albuns:
+                for musica in album.musicas:
+                    indice[musica.nome.lower()] = {
+                        'musica_obj': musica,
+                        'album_nome': album.nome,
+                        'artista_nome': artista.nome
+                    }
+        return indice
 
     def menu_principal(self):
         try:
             pygame.init()
             pygame.mixer.init()
+            pygame.mixer.music.set_volume(self.configuracoes.get('volume', 0.5))
             self.logger.info("Pygame inicializado com sucesso")
         except pygame.error as e:
             self.logger.error(f"Erro crítico ao inicializar Pygame: {e}")
@@ -111,8 +127,10 @@ class MenuReprodutor:
         else:
             if copiar_musica(Path(caminho_str)):
                 adicionar_musica(self.artistas, artista, album, musica, Path(caminho_str).name)
+                self.indice_musicas = self._criar_indice_hash()
                 self.logger.info(f"Música adicionada com sucesso: {musica} - {artista}")
         input("\nPressione Enter para voltar ao menu.")
+
 
     def lidar_com_remover(self):
         self.logger.info("Iniciando processo de remoção")
@@ -601,6 +619,9 @@ class MenuReprodutor:
     def ajustar_volume(self):
         while True:
             limpar_tela()
+            # Garante que o mixer esteja inicializado para obter o volume
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
             volume_atual = round(pygame.mixer.music.get_volume() * 100)
             print(f"=== AJUSTAR VOLUME (Atual: {volume_atual}%) ===")
             print("[1] - Definir volume (0-100%)")
@@ -614,6 +635,8 @@ class MenuReprodutor:
                     volume_input = max(0, min(volume_input, 100))
                     novo_volume = volume_input / 100
                     pygame.mixer.music.set_volume(novo_volume)
+                    self.configuracoes['volume'] = novo_volume # Salva a configuração
+                    salvar_configuracoes(self.configuracoes) # Persiste no arquivo
                     self.logger.info(f"Volume definido para {volume_input}%")
                     print(f"Volume definido para {volume_input}%")
                     input("Pressione ENTER para continuar.")
