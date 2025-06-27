@@ -1,12 +1,16 @@
-import pygame
 from pathlib import Path
-from classes import *
 from utils import *
 import os
+
+import pygame
+import threading
+
+from classes import *
 from logger import Logger
 from playlist import Playlist
-import threading
 from historico import HistoricoReproducao
+
+from playback_strategy import PlaybackStrategy, SequentialPlayStrategy, ShufflePlayStrategy
 
 class MenuReprodutor:
     def __init__(self):
@@ -16,10 +20,10 @@ class MenuReprodutor:
         self.historico = HistoricoReproducao()
         self.musica_tocando_info = None
         self.continuar = True
-        self.logger.info("MenuReprodutor inicializado")
         self.playlist_thread = None
         self.playlist_tocando = False
-        self.indice_musicas = self._criar_indice_hash() 
+        self.indice_musicas = self._criar_indice_hash()
+        self.logger.info("MenuReprodutor inicializado.")
 
     def _criar_indice_hash(self):
         """Cria um índice de músicas (tabela hash) para busca rápida."""
@@ -92,7 +96,7 @@ class MenuReprodutor:
             elif opcao == '9':
                 self.logger.info("Usuário escolheu sair")
                 if self.artistas:
-                    limpas_musicas_orfaos(self.artistas)
+                    #limpar_musicas_orfaos(self.artistas)
                     salvar_dados(self.artistas, self.playlists)
                 self.continuar = False
             else:
@@ -130,7 +134,6 @@ class MenuReprodutor:
                 self.indice_musicas = self._criar_indice_hash()
                 self.logger.info(f"Música adicionada com sucesso: {musica} - {artista}")
         input("\nPressione Enter para voltar ao menu.")
-
 
     def lidar_com_remover(self):
         self.logger.info("Iniciando processo de remoção")
@@ -374,6 +377,7 @@ class MenuReprodutor:
         return None
     
     def menu_playlists(self):
+        """Gerencia o submenu de playlists."""
         while(True):
             limpar_tela()
             print("========== GERENCIAR PLAYLISTS ==========")
@@ -492,7 +496,8 @@ class MenuReprodutor:
             elif opcao == '5':
                 if self.playlist_tocando:
                     self.logger.info("Parando reprodução da playlist")
-                    Reprodutor.parar_musica()
+                    self._tocar_ou_parar_playlist()
+                    # Reprodutor.parar_musica()
                     self.playlist_tocando = False
                     if self.playlist_thread and self.playlist_thread.is_alive():
                         self.playlist_thread.join(timeout=1)
@@ -546,54 +551,141 @@ class MenuReprodutor:
             elif opcao == '8':
                 break
 
-    def listar_playlists(self):
-        for i, playlist in enumerate(self.playlists):
-            print(f"[{i+1}] - {playlist.nome}")
+    def _tocar_ou_parar_playlist(self):
+        """Para uma playlist em execução ou inicia a reprodução de uma nova com uma estratégia selecionada."""
+        if self.playlist_tocando:
+            self.logger.info("Parando reprodução da playlist.")
+            Reprodutor.parar_musica()
+            self.playlist_tocando = False
+            if self.playlist_thread and self.playlist_thread.is_alive():
+                self.playlist_thread.join(timeout=1)
+            print("\nPlaylist parada.")
+            input("Pressione Enter para voltar.")
+            return
 
-    def reproduzir_playlist_thread(self, playlist):
+        if not self.playlists:
+            print("Nenhuma playlist disponível.")
+            input("Pressione ENTER para voltar.")
+            return
+
+        limpar_tela()
+        print("========== ESCOLHA UMA PLAYLIST ==========")
+        self.listar_playlists()
+        print(f"[{len(self.playlists)+1}] - Voltar")
+
+        try:
+            escolha_str = input(f"Escolha a playlist (1-{len(self.playlists)+1}): ").strip()
+            escolha_num = int(escolha_str)
+
+            if escolha_num == len(self.playlists) + 1:
+                return
+
+            if 1 <= escolha_num <= len(self.playlists):
+                playlist_escolhida = self.playlists[escolha_num - 1]
+
+                # --- PONTO-CHAVE DO PADRÃO STRATEGY ---
+                # O "Contexto" (esta parte do menu) agora decide qual "Estratégia" usar
+                # com base na entrada do usuário.
+                
+                print("\nEscolha o modo de reprodução:")
+                print("[1] - Sequencial (Padrão)")
+                print("[2] - Aleatório (Shuffle)")
+                modo_escolha = input("Escolha o modo: ").strip()
+
+                estrategia: PlaybackStrategy
+                if modo_escolha == '2':
+                    # Instancia a estratégia de reprodução aleatória
+                    estrategia = ShufflePlayStrategy()
+                else:
+                    # Instancia a estratégia de reprodução sequencial
+                    estrategia = SequentialPlayStrategy()
+                # ----------------------------------------
+                
+                self.logger.info(f"Iniciando reprodução da playlist '{playlist_escolhida.nome}' com a estratégia '{estrategia.__class__.__name__}'.")
+
+                # A thread agora recebe o objeto de estratégia para usar
+                self.playlist_thread = threading.Thread(
+                    target=self.reproduzir_playlist_thread,
+                    args=(playlist_escolhida, estrategia),
+                    daemon=True
+                )
+                self.playlist_tocando = True
+                self.playlist_thread.start()
+                print("\nPlaylist está tocando em segundo plano. Use a opção de parar para interromper.")
+                input("Pressione ENTER para voltar ao menu.")
+            else:
+                print("Escolha inválida.")
+                input("Pressione ENTER para voltar.")
+        except (ValueError, IndexError):
+            self.logger.error("Entrada inválida para seleção de playlist.")
+            print("Entrada inválida. Por favor, digite um número da lista.")
+            input("Pressione ENTER para voltar.")
+
+    def listar_playlists(self):
+        """Lista todas as playlists existentes."""
+        if not self.playlists:
+            print("Nenhuma playlist criada.")
+            return
+        for i, playlist in enumerate(self.playlists):
+            print(f"[{i+1}] - {playlist.nome} ({len(playlist.musicas)} músicas)")
+
+    def reproduzir_playlist_thread(self, playlist: Playlist, estrategia: PlaybackStrategy):
+        """
+        Thread que reproduz uma playlist usando a estratégia de reprodução fornecida.
+        
+        Este método atua como o "Contexto" que utiliza o objeto "Strategy"
+        para realizar seu trabalho, sem precisar conhecer os detalhes do algoritmo
+        de seleção de músicas.
+        """
         pygame.init()
         pygame.mixer.init()
-        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.set_volume(self.configuracoes.get('volume', 0.5))
 
-        for musica in playlist.musicas:
+        # --- USO DO PADRÃO STRATEGY ---
+        # O algoritmo de seleção de músicas é delegado ao objeto de estratégia.
+        # Não importa se é sequencial ou aleatório; o código aqui apenas chama o método.
+        musicas_para_tocar = estrategia.selecionar_musicas(playlist)
+        # --------------------------------
+        
+        for musica in musicas_para_tocar:
             if not self.playlist_tocando:
+                self.logger.info("Reprodução da playlist interrompida pelo usuário.")
                 break
 
-            caminho = os.path.join(PASTA_MUSICAS, musica.nome_arquivo)
+            caminho = os.path.join("musicas", musica.nome_arquivo)
 
             if not os.path.exists(caminho):
                 print(f"[ERRO] Arquivo '{musica.nome_arquivo}' não encontrado. Pulando.")
+                self.logger.warning(f"Arquivo de música não encontrado: {caminho}")
                 continue
 
-            self.logger.info(f"Tocando: {musica.nome}")
+            self.logger.info(f"Tocando via playlist: {musica.nome}")
 
-            # Encontrar o artista da música
-            artista_nome = ""
-            for artista in self.artistas:
-                for album in artista.albuns:
-                    if any(m.nome_arquivo == musica.nome_arquivo for m in album.musicas):
-                        artista_nome = artista.nome
+            # Lógica para encontrar o nome do artista para o histórico
+            artista_nome = "Desconhecido"
+            for art in self.artistas:
+                for alb in art.albuns:
+                    if musica in alb.musicas:
+                        artista_nome = art.nome
                         break
-                if artista_nome:
+                if artista_nome != "Desconhecido":
                     break
-
-            # Registrar no histórico
+            
             self.historico.adicionar_registro(musica.nome, artista_nome)
-
+            
             try:
-                pygame.mixer.music.load(caminho)
-                pygame.mixer.music.play()
+                Reprodutor.tocar_musica(musica.nome_arquivo, "musicas", musica.nome)
 
-                while pygame.mixer.music.get_busy():
-                    if not self.playlist_tocando:
-                        pygame.mixer.music.stop()
-                        break
+                # Espera a música terminar antes de passar para a próxima
+                while pygame.mixer.music.get_busy() and self.playlist_tocando:
                     pygame.time.Clock().tick(10)
+            
             except Exception as e:
-                self.logger.error(f"Erro ao reproduzir música: {e}")
-                print(f"Erro ao reproduzir música: {e}")
-
+                self.logger.error(f"Erro ao reproduzir '{musica.nome}' da playlist: {e}")
+                print(f"Erro ao tocar '{musica.nome}': {e}")
+        
         self.playlist_tocando = False
+        self.logger.info(f"Fim da reprodução da playlist '{playlist.nome}'.")
 
     def remover_musica(self, nome_artista: str, nome_album: str, nome_musica: str) -> bool:
         nome_artista = nome_artista.lower()
@@ -858,7 +950,6 @@ class MenuReprodutor:
             self.historico.limpar_historico()
             print("Histórico limpo com sucesso!")
             input("Pressione ENTER para continuar.")
-
 
 def remover_album(artistas: list, nome_artista: str, nome_album: str) -> bool:
     nome_artista = nome_artista.lower()
