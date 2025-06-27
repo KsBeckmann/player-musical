@@ -494,21 +494,21 @@ class MenuReprodutor:
                     input("Pressione ENTER para continuar: ")
             
             elif opcao == '5':
-                if self.playlist_tocando:
-                    self.logger.info("Parando reprodução da playlist")
-                    self._tocar_ou_parar_playlist()
-                    # Reprodutor.parar_musica()
-                    self.playlist_tocando = False
-                    if self.playlist_thread and self.playlist_thread.is_alive():
-                        self.playlist_thread.join(timeout=1)
-                    print("\nPlaylist parada.")
-                    input("Pressione Enter para voltar.")
-                    return
+                # if self.playlist_tocando:
+                #     self.logger.info("Parando reprodução da playlist")
+                self._tocar_ou_parar_playlist()
+                #    # Reprodutor.parar_musica()
+                #     self.playlist_tocando = False
+                #     if self.playlist_thread and self.playlist_thread.is_alive():
+                #         self.playlist_thread.join(timeout=1)
+                #     print("\nPlaylist parada.")
+                #     input("Pressione Enter para voltar.")
+                #     return
 
-                if not self.playlists:
-                    print("Nenhuma playlist disponível.")
-                    input("Pressione ENTER para voltar")
-                    return
+                # if not self.playlists:
+                #     print("Nenhuma playlist disponível.")
+                #     input("Pressione ENTER para voltar")
+                #     return
 
                 limpar_tela()
                 print("========== ESCOLHA UMA PLAYLIST ==========")
