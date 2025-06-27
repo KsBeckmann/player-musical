@@ -84,3 +84,35 @@ No terminal, a partir da raiz do projeto (player-musical), execute o seguinte co
 python -m unittest discover tests
 
 O unittest irá descobrir e executar todos os testes dentro da pasta tests, exibindo os resultados no console.
+
+## 🚀 Como Executar o Programa
+Para executar o SoundWave em sua máquina, siga os passos abaixo.
+
+Pré-requisitos
+Python 3.9 ou superior
+
+1. Clone o Repositório
+Primeiro, clone ou faça o download dos arquivos do projeto para o seu computador.
+
+2. Navegue até a Pasta do Projeto
+Abra um terminal e navegue até o diretório onde você salvou os arquivos.
+
+```
+cd caminho/para/player-musical
+```
+
+3. Instale as Dependências
+Instale a única dependência necessária (pygame) executando o seguinte comando:
+
+```
+pip install -r requirements.txt
+```
+
+4. Execute a Aplicação
+Com as dependências instaladas, inicie o programa:
+
+```
+python main.py
+```
+
+Pronto! O menu principal do SoundWave aparecerá no seu terminal.
